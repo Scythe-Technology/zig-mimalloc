@@ -132,6 +132,8 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
         .link_libcpp = if (MI_USE_CXX) true else null,
     });
+    if (target.result.os.tag.isDarwin())
+        try apple_sdk.addPaths(b, target, .{ .module = mod });
     mod.addCSourceFiles(.{
         .root = dep.path("src"),
         .files = sources.items,
@@ -155,7 +157,7 @@ pub fn build(b: *std.Build) !void {
         .root_module = mod,
     });
     if (target.result.os.tag.isDarwin())
-        try apple_sdk.addPaths(b, mod_tests);
+        try apple_sdk.addPaths(b, target, .{ .compile = mod_tests });
 
     const run_mod_tests = b.addRunArtifact(mod_tests);
 

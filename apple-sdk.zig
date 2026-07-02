@@ -9,7 +9,11 @@ const builtin = @import("builtin");
 /// a non-Darwin host, it falls back to Zig's bundled Darwin headers.
 pub fn addPaths(
     b: *std.Build,
-    step: *std.Build.Step.Compile,
+    resolved_target: std.Build.ResolvedTarget,
+    step: union(enum) {
+        module: *std.Build.Module,
+        compile: *std.Build.Step.Compile,
+    },
 ) !void {
     // The cache. This always uses b.allocator and never frees memory
     // (which is idiomatic for a Zig build exe). We cache the libc txt
@@ -36,7 +40,7 @@ pub fn addPaths(
         var map: std.AutoHashMapUnmanaged(Key, ?Value) = .{};
     };
 
-    const target = step.rootModuleTarget();
+    const target = resolved_target.result;
     const gop = try Cache.map.getOrPut(b.allocator, .{
         .arch = target.cpu.arch,
         .os = target.os.tag,
@@ -50,7 +54,7 @@ pub fn addPaths(
             // find the SDK path.
             const libc = std.zig.LibCInstallation.findNative(.{
                 .allocator = b.allocator,
-                .target = &step.rootModuleTarget(),
+                .target = &target,
                 .verbose = false,
             }) catch break :darwin;
 
@@ -137,16 +141,22 @@ pub fn addPaths(
 
     switch (value) {
         .native => |native| {
-            step.setLibCFile(native.libc);
-
-            // This is only necessary until this bug is fixed:
-            // https://github.com/ziglang/zig/issues/24024
-            step.root_module.addSystemFrameworkPath(.{ .cwd_relative = native.framework });
-            step.root_module.addSystemIncludePath(.{ .cwd_relative = native.system_include });
-            step.root_module.addLibraryPath(.{ .cwd_relative = native.library });
+            switch (step) {
+                .compile => |c| c.setLibCFile(native.libc),
+                .module => |m| {
+                    // This is only necessary until this bug is fixed:
+                    // https://github.com/ziglang/zig/issues/24024
+                    m.addSystemFrameworkPath(.{ .cwd_relative = native.framework });
+                    m.addSystemIncludePath(.{ .cwd_relative = native.system_include });
+                    m.addLibraryPath(.{ .cwd_relative = native.library });
+                },
+            }
         },
         .cross => |cross| {
-            step.setLibCFile(cross.libc);
+            switch (step) {
+                .compile => |c| c.setLibCFile(cross.libc),
+                .module => {},
+            }
         },
     }
 }
