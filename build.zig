@@ -1,4 +1,5 @@
 const std = @import("std");
+pub const apple_sdk = @import("apple-sdk");
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -134,6 +135,8 @@ pub fn build(b: *std.Build) !void {
     const mod_tests = b.addTest(.{
         .root_module = mod,
     });
+    if (target.result.os.tag.isDarwin())
+        try apple_sdk.addPaths(b, mod_tests);
 
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
