@@ -126,7 +126,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
 
-    const mod = b.addModule("mimalloc", .{
+    const mod = b.addModule("root", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
