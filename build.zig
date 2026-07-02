@@ -1,5 +1,5 @@
 const std = @import("std");
-pub const apple_sdk = @import("apple-sdk");
+pub const apple_sdk = @import("./apple-sdk.zig");
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
