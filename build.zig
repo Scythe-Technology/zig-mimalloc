@@ -21,6 +21,10 @@ pub fn build(b: *std.Build) !void {
     const MI_WIN_USE_FIXED_TLS = b.option(bool, "mi_win_use_fixed_tls", "Use a fixed TLS slot on Windows to avoid extra tests in the malloc fast path") orelse false;
     const MI_LOCAL_DYNAMIC_TLS = b.option(bool, "mi_local_dynamic_tls", "Use local-dynamic-tls, a slightly slower but dlopen-compatible thread local storage mechanism (Unix)") orelse false;
 
+    const MI_DEBUG = b.option(bool, "mi_debug", "Enable assertion checks (enabled by default in a debug build)");
+    const MI_DEBUG_INTERNAL = b.option(bool, "mi_debug_internal", "Enable assertion and internal invariant checks (enabled by default in a debug build)") orelse false;
+    const MI_DEBUG_FULL = b.option(bool, "mi_debug_full", "Enable assertion checks and expensive internal heap invariant checking") orelse false;
+
     // options
     const VERBOSE = b.option(bool, "verbose", "Enable verbose output") orelse false;
     const EAGER_COMMIT = b.option(u8, "eager_commit", "Enable eager commit");
@@ -81,6 +85,21 @@ pub fn build(b: *std.Build) !void {
         try flags.append(b.allocator, "-ftls-model=initial-exec");
     }
     if (MI_OVERRIDE) try flags.append(b.allocator, "-fno-builtin-malloc");
+
+    if (MI_DEBUG) |debug| {
+        if (MI_DEBUG_FULL)
+            try flags.append(b.allocator, "-DMI_DEBUG=3")
+        else if (MI_DEBUG_INTERNAL)
+            try flags.append(b.allocator, "-DMI_DEBUG=2")
+        else if (debug)
+            try flags.append(b.allocator, "-DMI_DEBUG=1")
+        else
+            try flags.append(b.allocator, "-DMI_DEBUG=0");
+    } else {
+        if (optimize == .Debug) {
+            try flags.append(b.allocator, "-DMI_DEBUG=1");
+        }
+    }
 
     try flags.append(b.allocator, "-Wall");
     try flags.append(b.allocator, "-Wextra");
