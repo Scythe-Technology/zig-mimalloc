@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Zig
+      uses: mlugg/setup-zig@v2
+      with:
+        version: 0.15.2
+        use-cache: false
+
+    - name: Run fmt
+      run: zig fmt --check **/*.zig
+
+  test:
+    needs: [fmt]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Linux x86_64
+            target: x86_64-linux-gnu
+          - os: windows-latest
+            name: Windows x86_64
+            target: x86_64-windows
+          - os: macos-13
+            name: macOs x86_64
+            target: x86_64-macos
+          - os: macos-14
+            name: macOs Arm64 (14)
+            target: aarch64-macos
+          - os: macos-15
+            name: macOs Arm64 (15)
+            target: aarch64-macos
+          - os: ubuntu-latest
+            name: Linux Arm64
+            target: aarch64-linux
+            qemu-platform: arm64
+          - os: ubuntu-latest
+            name: Linux Risc-v64
+            target: riscv64-linux
+            qemu-platform: riscv64
+          - os: ubuntu-latest
+            name: Wasi Wasm32
+            target: wasm32-wasi
+
+    name: ${{ matrix.name }}
+    timeout-minutes: 20
+    runs-on: ${{matrix.os}}
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Zig
+      uses: mlugg/setup-zig@v2
+      with:
+        version: 0.15.2
+        use-cache: false
+
+    - name: Setup Wasmtime
+      if: contains(matrix.target, 'wasm')
+      uses: jcbhmr/setup-wasmtime@v2.0.4
+
+    - name: Setup QEMU
+      if: matrix.qemu-platform != ''
+      uses: docker/setup-qemu-action@v1
+
+    - name: Run tests
+      continue-on-error: ${{ matrix.qemu-platform != '' }}
+      run: zig build test -Dtarget=${{ matrix.target }}${{ matrix.qemu-platform != '' && ' -fqemu' || '' }}${{ contains(matrix.target, 'wasm') && ' -fwasmtime' || '' }} --verbose --summary all
